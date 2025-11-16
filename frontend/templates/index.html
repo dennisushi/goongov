@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoonGov - Trace Analysis</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-wrapper">
+        <header class="top-header">
+            <div class="logo">
+                <span class="logo-text">GoonGov</span>
+            </div>
+        </header>
+        
+        <div class="container">
+            <div class="main-content">
+            <!-- Left Panel: Graph Visualization -->
+            <div class="graph-panel">
+                <h2>Execution Trace</h2>
+                <div id="graph-container"></div>
+                <div id="graph-loading" class="loading" style="display: none;">
+                    Generating trace...
+                </div>
+            </div>
+
+            <!-- Right Panel: Query and Results -->
+            <div class="query-panel">
+                <div class="query-section">
+                    <h2>Query to Critic</h2>
+                    <textarea 
+                        id="query-input" 
+                        placeholder="Enter your question about the trace (e.g., 'why did they choose this room')"
+                        rows="3"
+                    ></textarea>
+                    <button id="analyze-btn" onclick="analyzeTrace()">Analyze Trace</button>
+                    <div id="query-loading" class="loading" style="display: none;">
+                        Analyzing...
+                    </div>
+                </div>
+
+                <div class="results-section">
+                    <h2>Culprit Analysis</h2>
+                    <div id="summary" class="summary-box"></div>
+                    <div id="culprits-list" class="culprits-list">
+                        <div class="empty-state">
+                            <p>No analysis performed yet. Enter a query and click "Analyze Trace" to identify culprits.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load trace data if provided
+        {% if current_trace %}
+        window.initialTraceData = {{ current_trace | safe }};
+        {% endif %}
+    </script>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
+
