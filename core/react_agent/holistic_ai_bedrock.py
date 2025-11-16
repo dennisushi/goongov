@@ -246,9 +246,10 @@ class HolisticAIBedrockChat(BaseChatModel):
                 # Store raw JSON in message content
                 message = AIMessage(content=content)
             elif tool_calls:
-                # When there are tool calls, use dict format directly
-                # LangChain's AIMessage constructor accepts dict format
-                message = AIMessage(content="", tool_calls=tool_calls)
+                # When there are tool calls, preserve any reasoning content
+                # LangChain's AIMessage constructor accepts both content and tool_calls
+                # This allows the model to provide reasoning/thoughts before tool calls
+                message = AIMessage(content=content, tool_calls=tool_calls)
             else:
                 message = AIMessage(content=content)
             

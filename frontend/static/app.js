@@ -489,12 +489,11 @@ function displayCulprits(culprits) {
                         ${isResponsible ? '<span class="responsible-badge">🎯 RESPONSIBLE</span>' : ''}
                         ${isFailure ? '<span class="failure-badge">❌ FAILURE</span>' : ''}
                     </div>
-                    <span class="confidence-badge">${(confidence * 100).toFixed(0)}%</span>
                 </div>
                 ${sources ? `<div class="culprit-sources" style="font-size: 0.85em; color: #94A3B8; margin-bottom: 8px;">Source: ${escapeHtml(sources)}</div>` : ''}
                 ${responsibleComponent ? `<div class="responsible-component" style="font-size: 0.85em; color: #F59E0B; margin-bottom: 8px; font-weight: 600;">Component: ${escapeHtml(responsibleComponent)}</div>` : ''}
                 <div class="culprit-content">${escapeHtml(culprit.content || '')}</div>
-                <div class="culprit-explanation">${escapeHtml(culprit.explanation || '')}</div>
+                <div class="culprit-explanation">${escapeHtml((culprit.explanation || '').trim())}</div>
             </div>
         `;
     });
@@ -739,7 +738,7 @@ function initializeGraph(traceData) {
                 // Fallback for old data
                 const culpritBadge = document.createElement('span');
                 culpritBadge.className = 'culprit-badge';
-                culpritBadge.textContent = `⚠️ CULPRIT (${Math.round(confidence * 100)}%)`;
+                culpritBadge.textContent = `⚠️ CULPRIT`;
                 badgeContainer.appendChild(culpritBadge);
             }
             
@@ -754,46 +753,8 @@ function initializeGraph(traceData) {
         const contentDiv = document.createElement('div');
         contentDiv.className = 'message-content';
         
-        // Handle tool calls - simplified display
-        if (toolCalls && toolCalls.length > 0) {
-            const toolCallsDiv = document.createElement('div');
-            toolCallsDiv.className = 'tool-calls';
-            toolCalls.forEach(tc => {
-                const toolCallDiv = document.createElement('div');
-                toolCallDiv.className = 'tool-call';
-                const name = tc.name || (tc.function && tc.function.name) || 'unknown';
-                const args = tc.args || (tc.function && tc.function.arguments) || {};
-                
-                // Simplify args display - show key-value pairs in readable format
-                let argsDisplay = '';
-                if (typeof args === 'string') {
-                    try {
-                        args = JSON.parse(args);
-                    } catch (e) {
-                        argsDisplay = args;
-                    }
-                }
-                
-                if (!argsDisplay && typeof args === 'object') {
-                    const argPairs = Object.entries(args).map(([key, val]) => {
-                        const valStr = typeof val === 'string' ? val : JSON.stringify(val);
-                        return `${key}: ${valStr}`;
-                    });
-                    argsDisplay = argPairs.join(', ');
-                } else if (!argsDisplay) {
-                    argsDisplay = JSON.stringify(args);
-                }
-                
-                toolCallDiv.innerHTML = `
-                    <strong>🔧 ${name}</strong>
-                    <div class="tool-args">${escapeHtml(argsDisplay)}</div>
-                `;
-                toolCallsDiv.appendChild(toolCallDiv);
-            });
-            contentDiv.appendChild(toolCallsDiv);
-        }
-        
-        // Add text content - simplify display
+        // Add text content (reasoning) first - simplify display
+        let hasToolCalls = false;
         if (content && content.trim()) {
             const textDiv = document.createElement('div');
             textDiv.className = 'message-text';
@@ -837,10 +798,56 @@ function initializeGraph(traceData) {
                 };
                 textDiv.appendChild(expandBtn);
             } else {
-                textDiv.textContent = content;
+                textDiv.textContent = content.trim();
             }
             contentDiv.appendChild(textDiv);
-        } else if (!toolCalls || toolCalls.length === 0) {
+        }
+        
+        // Handle tool calls - show after reasoning
+        if (toolCalls && toolCalls.length > 0) {
+            hasToolCalls = true;
+            const toolCallsDiv = document.createElement('div');
+            toolCallsDiv.className = 'tool-calls';
+            // Add margin-top to create spacing between reasoning and tool calls
+            if (content && content.trim()) {
+                toolCallsDiv.style.marginTop = '12px';
+            }
+            toolCalls.forEach(tc => {
+                const toolCallDiv = document.createElement('div');
+                toolCallDiv.className = 'tool-call';
+                const name = tc.name || (tc.function && tc.function.name) || 'unknown';
+                const args = tc.args || (tc.function && tc.function.arguments) || {};
+                
+                // Simplify args display - show key-value pairs in readable format
+                let argsDisplay = '';
+                if (typeof args === 'string') {
+                    try {
+                        args = JSON.parse(args);
+                    } catch (e) {
+                        argsDisplay = args;
+                    }
+                }
+                
+                if (!argsDisplay && typeof args === 'object') {
+                    const argPairs = Object.entries(args).map(([key, val]) => {
+                        const valStr = typeof val === 'string' ? val : JSON.stringify(val);
+                        return `${key}: ${valStr}`;
+                    });
+                    argsDisplay = argPairs.join(', ');
+                } else if (!argsDisplay) {
+                    argsDisplay = JSON.stringify(args);
+                }
+                
+                // Only show args if they exist and are not empty
+                const hasArgs = argsDisplay && argsDisplay.trim() !== '' && argsDisplay !== '{}';
+                toolCallDiv.innerHTML = `
+                    <strong>🔧 ${name}</strong>
+                    ${hasArgs ? `<div class="tool-args">${escapeHtml(argsDisplay)}</div>` : ''}
+                `;
+                toolCallsDiv.appendChild(toolCallDiv);
+            });
+            contentDiv.appendChild(toolCallsDiv);
+        } else if (!content || !content.trim()) {
             // Show subtle indicator for empty messages
             const emptyDiv = document.createElement('div');
             emptyDiv.className = 'message-text';
@@ -854,7 +861,9 @@ function initializeGraph(traceData) {
         if (isCulprit && culprit.explanation) {
             const explanationDiv = document.createElement('div');
             explanationDiv.className = 'culprit-explanation-bubble';
-            explanationDiv.innerHTML = `<br>${escapeHtml(culprit.explanation)}`;
+            // Trim explanation to remove leading/trailing whitespace and newlines
+            const trimmedExplanation = culprit.explanation.trim();
+            explanationDiv.innerHTML = escapeHtml(trimmedExplanation);
             contentDiv.appendChild(explanationDiv);
         }
         

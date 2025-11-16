@@ -52,13 +52,18 @@ def print_message_summary(msg: BaseMessage, highlight_culprit: bool = False):
         important = content.strip().split("\n")[-1]
     elif msg_type == "AIMessage":
         tcolor = 'green'
-        # If tool call(s), summarize; else, show content
+        # If tool call(s), show reasoning (if any) + tool call; else, show content
         tool_calls = getattr(msg, 'tool_calls', None)
         if tool_calls and len(tool_calls) > 0:
             tc = tool_calls[0]
-            important = f"Tool call: {tc.get('name', '')}({tc.get('args', {})})"
+            tool_info = f"Tool call: {tc.get('name', '')}({tc.get('args', {})})"
+            # Include reasoning content if present
+            if content and content.strip():
+                important = f"{content.strip()}\n  → {tool_info}"
+            else:
+                important = tool_info
         else:
-            important = content.strip()
+            important = content.strip() if content else "(empty)"
     elif msg_type == "ToolMessage":
         tcolor = 'magenta'
         toolname = getattr(msg, "name", "")
@@ -139,7 +144,16 @@ def create_trace_graph(
                 tool_args = tc.get('args', {})
                 tool_info.append(f"{tool_name}({str(tool_args)[:50]})")
             if tool_info:
-                display_content = f"Tool calls: {', '.join(tool_info)}"
+                tool_str = f"Tool calls: {', '.join(tool_info)}"
+                # Include reasoning content if present
+                if content and content.strip():
+                    # Truncate reasoning if too long
+                    reasoning = content.strip()
+                    if len(reasoning) > 80:
+                        reasoning = reasoning[:80] + "..."
+                    display_content = f"{reasoning}\n→ {tool_str}"
+                else:
+                    display_content = tool_str
         
         # Check if culprit
         is_culprit = msg_id in culprit_ids
