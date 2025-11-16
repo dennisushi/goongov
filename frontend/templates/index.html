@@ -13,7 +13,11 @@
     <div class="app-wrapper">
         <header class="top-header">
             <div class="logo">
-                <span class="logo-text">GoonGov</span>
+                <img src="{{ url_for('static', filename='images/image_1.webp') }}" alt="Logo" class="logo-image">
+                <span class="logo-text">
+                    <span class="logo-prefix">evise by</span>
+                    <span class="logo-name">GoonGov</span>
+                </span>
             </div>
         </header>
         
@@ -44,7 +48,16 @@
             <div class="main-content">
             <!-- Left Panel: Graph Visualization -->
             <div class="graph-panel">
-                <h2>Execution Trace</h2>
+                <div class="graph-header">
+                    <h2>Execution Trace</h2>
+                    <div class="trace-view-toggle">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="trace-view-toggle" onchange="toggleTraceView()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span class="toggle-label" id="trace-view-label">Full Trace</span>
+                    </div>
+                </div>
                 <div id="graph-container"></div>
                 <div id="graph-loading" class="loading" style="display: none;">
                     Generating trace...

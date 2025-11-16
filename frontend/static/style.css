@@ -32,17 +32,36 @@ body {
 .logo {
     display: flex;
     align-items: center;
+    gap: 6px; /* Reduced gap between logo and text */
+}
+
+.logo-image {
+    height: 40px;
+    margin-right: -8px;
+    width: auto;
+    object-fit: contain;
 }
 
 .logo-text {
     font-size: 1.75em;
     font-weight: 800;
+    /* letter-spacing: -0.5px; */
+    display: flex;
+    align-items: center;
+    gap: 4px; /* Space between "by" and "GoonGov" */
+}
+
+.logo-prefix {
+    color: #F1F5F9; /* White text */
+}
+
+.logo-name {
     background: linear-gradient(135deg, #0066FF 0%, #6B46C1 50%, #00D9FF 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    letter-spacing: -0.5px;
     text-shadow: 0 0 30px rgba(0, 102, 255, 0.3);
+    margin-left: 4px; /* Additional space before GoonGov */
 }
 
 .container {
@@ -164,12 +183,82 @@ body {
     min-width: 0;
 }
 
-.graph-panel h2 {
+.graph-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 20px;
+}
+
+.graph-panel h2,
+.graph-panel h3 {
+    margin: 0;
     color: #F1F5F9;
     font-size: 1.25em;
     font-weight: 700;
     letter-spacing: -0.3px;
+}
+
+.trace-view-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.toggle-label {
+    color: #CBD5E1;
+    font-size: 0.9em;
+    font-weight: 500;
+    user-select: none;
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(148, 163, 184, 0.3);
+    transition: 0.3s;
+    border-radius: 24px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background: linear-gradient(135deg, #0066FF 0%, #6B46C1 50%, #00D9FF 100%);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(26px);
+}
+
+.toggle-switch input:focus + .toggle-slider {
+    box-shadow: 0 0 1px rgba(0, 102, 255, 0.5);
 }
 
 .query-section h2,

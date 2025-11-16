@@ -2,6 +2,7 @@
 let currentTraceData = null;
 let culpritData = null;
 let originalUserQuery = null;  // Store the original query that generated the trace
+let traceViewMode = 'full'; // 'full' or 'user-gui'
 
 // Backend API URL - can be overridden by setting window.API_BASE_URL
 // If running frontend separately, set this to 'http://localhost:5000'
@@ -540,6 +541,73 @@ function highlightNode(nodeId) {
 }
 
 /**
+ * Filter messages for User GUI view (only Human messages and final output)
+ */
+function filterMessagesForUserGUI(messages) {
+    if (!messages || messages.length === 0) return [];
+    
+    const filtered = [];
+    let lastAIMessage = null;
+    
+    // First pass: collect all Human messages and find the last AI message
+    for (let i = 0; i < messages.length; i++) {
+        const msg = messages[i];
+        let msgType = '';
+        
+        if (typeof msg === 'object' && msg !== null) {
+            if (msg.type || msg.lc_id || msg.lc_kwargs) {
+                let typeStr = msg.type || '';
+                if (!typeStr && msg.lc_kwargs && msg.lc_kwargs.content_type) {
+                    typeStr = msg.lc_kwargs.content_type;
+                }
+                typeStr = typeStr.toLowerCase().replace(/message$/, '').replace(/^lc_/, '');
+                msgType = typeStr || 'unknown';
+            } else {
+                msgType = (msg.constructor?.name || 'Unknown').replace('Message', '').toLowerCase();
+            }
+        }
+        
+        // Keep Human messages
+        if (msgType === 'human') {
+            filtered.push(msg);
+        }
+        
+        // Track the last AI message (we'll use the very last one)
+        if (msgType === 'ai') {
+            lastAIMessage = msg;
+        }
+    }
+    
+    // Add the final AI message if found (this is the final output)
+    if (lastAIMessage) {
+        filtered.push(lastAIMessage);
+    }
+    
+    return filtered;
+}
+
+/**
+ * Toggle between full trace and user GUI view
+ */
+function toggleTraceView() {
+    const toggle = document.getElementById('trace-view-toggle');
+    const label = document.getElementById('trace-view-label');
+    
+    if (toggle.checked) {
+        traceViewMode = 'user-gui';
+        label.textContent = 'User GUI';
+    } else {
+        traceViewMode = 'full';
+        label.textContent = 'Full Trace';
+    }
+    
+    // Re-render the graph with the new view mode
+    if (currentTraceData) {
+        initializeGraph(currentTraceData);
+    }
+}
+
+/**
  * Initialize chat-style timeline visualization from trace data
  */
 function initializeGraph(traceData) {
@@ -551,7 +619,12 @@ function initializeGraph(traceData) {
     loadingDiv.style.display = 'block';
     
     // Extract messages from trace
-    const messages = traceData.messages || [];
+    let messages = traceData.messages || [];
+    
+    // Filter messages if in User GUI mode
+    if (traceViewMode === 'user-gui') {
+        messages = filterMessagesForUserGUI(messages);
+    }
     
     // Clear container
     container.innerHTML = '';
@@ -833,6 +906,10 @@ function escapeHtml(text) {
 window.traceAnalysis = {
     loadTraceData: loadTraceData,
     analyzeTrace: analyzeTrace,
-    generateTrace: generateTrace
+    generateTrace: generateTrace,
+    toggleTraceView: toggleTraceView
 };
+
+// Also expose toggleTraceView globally for inline onclick handlers
+window.toggleTraceView = toggleTraceView;
 

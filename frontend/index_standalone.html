@@ -10,7 +10,11 @@
     <div class="app-wrapper">
         <div class="top-header">
             <div class="logo">
-                <span class="logo-text">Trace Analysis</span>
+                <img src="static/images/image_1.webp" alt="Logo" class="logo-image">
+                <span class="logo-text">
+                    <span class="logo-prefix">evise by</span>
+                    <span class="logo-name">GoonGov</span>
+                </span>
             </div>
         </div>
 
@@ -41,7 +45,16 @@
 
                 <!-- Execution Trace Section -->
                 <div class="trace-section">
-                    <h3>Execution Trace</h3>
+                    <div class="graph-header">
+                        <h3>Execution Trace</h3>
+                        <div class="trace-view-toggle">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="trace-view-toggle" onchange="toggleTraceView()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="toggle-label" id="trace-view-label">Full Trace</span>
+                        </div>
+                    </div>
                     <div id="graph-container">
                         <div class="empty-state">
                             <p>No trace data loaded. Enter a query above to generate a trace.</p>
