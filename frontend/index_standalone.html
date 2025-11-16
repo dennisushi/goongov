@@ -77,14 +77,20 @@
                     </div>
                     
                     <button id="analyze-btn" onclick="analyzeTrace()">Analyze Trace</button>
-                    <div id="analysis-loading" style="display: none;">
-                        <p>Analyzing trace...</p>
+                    <div id="query-loading" class="loading" style="display: none;">
+                        <div class="progress-container">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progress-fill"></div>
+                            </div>
+                            <div class="progress-text" id="progress-text">Initializing analysis...</div>
+                            <div class="progress-stages" id="progress-stages"></div>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Culprit Analysis Section -->
                 <div class="culprit-section">
-                    <h3>Culprit Analysis</h3>
+                    <h3>Analysis</h3>
                     <div id="summary"></div>
                     <div id="culprits-list"></div>
                 </div>

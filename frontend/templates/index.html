@@ -74,7 +74,13 @@
                     
                     <button id="analyze-btn" onclick="analyzeTrace()">Analyze Trace</button>
                     <div id="query-loading" class="loading" style="display: none;">
-                        Analyzing...
+                        <div class="progress-container">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progress-fill"></div>
+                            </div>
+                            <div class="progress-text" id="progress-text">Initializing analysis...</div>
+                            <div class="progress-stages" id="progress-stages"></div>
+                        </div>
                     </div>
                 </div>
 

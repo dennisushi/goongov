@@ -105,12 +105,20 @@ def get_rooms() -> List[str]:
 
 @tool
 @observe()
-def check_calendar(date : str) -> str:
-    """Check if the community center is available on the given date."""
+def check_calendar(date : str, room_id: str) -> str:
+    """Check if the room is available on the given date. If the room is not available, return the reason why.
+    
+    Arguments:
+    date: Date to check.
+    room_id: ID of the room to check.
+
+    Returns:
+    A string indicating whether the room is available on the given date.
+    """
     # Simulated calendar data
     #booked_dates = ["2025-12-01", "2025-12-03", "2025-12-10"]
     #return date not in booked_dates
-    return f"Observation:{date} is AVAILABLE"
+    return f"Observation: {date} is AVAILABLE for {room_id}"
 @tool
 @observe()
 def check_room_rules(room_id: str) -> str:
@@ -127,7 +135,12 @@ def check_room_rules(room_id: str) -> str:
     check_room_rules("Room101") ->
     "Observation: Rules for Room101 are 'max_capacity: -39, no_food_allowed
     """
-    return f"Observation: Rules for {room_id} are 'max_capacity: -39, no_food_allowed'."
+    import random
+    max_capacity = random.choice([-39, 50, 100, 200, 30])
+    no_food_allowed = random.choice([True, False])
+    food_policy = "no_food_allowed" if no_food_allowed else "food_allowed"
+    noise_policy = random.choice(["no_loud_music", "music_allowed", "quiet_hours_after_9pm", "no_noise_restrictions"])
+    return f"Observation: Rules for {room_id} are 'max_capacity: {max_capacity}, {food_policy}, {noise_policy}'."
 @tool
 @observe()
 def assign_task(staff_name: str, task : str) -> str:
@@ -144,8 +157,10 @@ def assign_task(staff_name: str, task : str) -> str:
 
     Example:
     assign_task("Alice", "Setup chairs") ->
-    "Action successful: Task 'Setup chairs' assigned to Alice.
+    "Action successful: Task 'Setup chairs' assigned to Alice."
     """
+    if staff_name.strip().lower() == "john":
+        return f"Assignment failed: {staff_name} is unavailable (in hospital at the moment)."
     return f"Action successful: Task '{task}' assigned to {staff_name}." 
 
 @tool
@@ -160,9 +175,12 @@ def within_capacity(num_people: int, max_capacity: int) -> str:
     A string indicating whether the number of people is within the max capacity.
 
     Example:
-    within_capacity(30, 50) -> "Observation: 30 is within the capacity of 50.
+    within_capacity(30, 50) -> "Observation: 30 is within the capacity of 50."
     """
-    return f"Observation: {num_people} exceeds the capacity of {max_capacity}."
+    if num_people <= max_capacity:
+        return f"Observation: {num_people} is within the capacity of {max_capacity}."
+    else:
+        return f"Observation: {num_people} exceeds the capacity of {max_capacity}."
 
 
 class Agent():
@@ -195,9 +213,11 @@ Your goal is to process user requests by:
 3. Providing clear, helpful responses based on the tool results
 
 Available tools:
-- check_calendar(date): Check if the community center is available on a given date
+- check_calendar(date, room_id): Check if the community center is available on a given date
 - check_room_rules(room_id): Get the rules and capacity for a specific room
 - assign_task(staff_name, task): Assign a task to a staff member
+- within_capacity(num_people, max_capacity): Check if the number of people is within the max capacity
+- get_rooms(): Get a list of available rooms in the community center
 
 CRITICAL INSTRUCTIONS:
 - DO NOT write text descriptions of tool calls like "Agent action: check_calendar(...)"
@@ -206,7 +226,8 @@ CRITICAL INSTRUCTIONS:
 - The system will automatically execute tools and provide you with results
 - After receiving tool results, provide a natural, helpful response to the user
 - If a request is inappropriate, unsafe, or cannot be fulfilled, politely explain why
-- You cannot ask the user for further information. If insufficient - either assume if it is reasonable to do so or notify the user that you cannot proceed without more information about [X].
+- You can reattempt to find alternative rooms up to 4 times, if the user's request is not possible with the current room.
+- You cannot ask the user for further information. If insufficient - either assume if it is reasonable to do so or notify the user that you cannot proceed without more information about [X]. You are pretty important so you can assume many things - just notify the user.
 
 Workflow:
 1. User makes a request
@@ -220,4 +241,4 @@ Always be professional, helpful, and clear in your responses."""
         super().__init__(
             model_name="claude-3-5-sonnet", 
             system_prompt=system_prompt, 
-            tools=[check_calendar, check_room_rules, assign_task])
+            tools=[check_calendar, check_room_rules, assign_task, within_capacity, get_rooms])

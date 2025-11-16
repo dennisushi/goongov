@@ -128,8 +128,9 @@ async function generateTrace() {
  * Analyze trace with user query
  */
 async function analyzeTrace() {
-    const queryInput = document.getElementById('query-input');
-    const query = queryInput.value.trim();
+    // Try both possible input IDs
+    const queryInput = document.getElementById('query-input') || document.getElementById('critic-query-input');
+    const query = queryInput ? queryInput.value.trim() : '';
     
     if (!query) {
         alert('Please enter a query');
@@ -158,7 +159,103 @@ async function analyzeTrace() {
     
     if (!useFindIssueOrigin && !useFailureAnalysis) {
         alert('Please enable at least one analysis method.');
+        analyzeBtn.disabled = false;
+        loadingDiv.style.display = 'none';
         return;
+    }
+    
+    // Initialize progress bar (declare outside try-catch for scope)
+    let progressFill = null;
+    let progressText = null;
+    let progressStages = null;
+    let progressInterval = null;
+    let currentProgress = 0;
+    
+    try {
+        progressFill = document.getElementById('progress-fill');
+        progressText = document.getElementById('progress-text');
+        progressStages = document.getElementById('progress-stages');
+    } catch (e) {
+        console.warn('Progress bar elements not found:', e);
+    }
+    
+    // Define analysis stages based on which methods are enabled
+    const stages = [];
+    if (useFindIssueOrigin) {
+        stages.push({ name: 'Identifying relevant components...', progress: 20 });
+        stages.push({ name: 'Analyzing messages for culprits...', progress: 50 });
+    }
+    if (useFailureAnalysis) {
+        stages.push({ name: 'Finding responsible component...', progress: useFindIssueOrigin ? 70 : 40 });
+        stages.push({ name: 'Detecting failures...', progress: useFindIssueOrigin ? 90 : 80 });
+    }
+    stages.push({ name: 'Finalizing results...', progress: 95 });
+    
+    // Display stages
+    if (progressStages) {
+        progressStages.innerHTML = stages.map((stage, idx) => 
+            `<div class="progress-stage" data-stage="${idx}">${stage.name}</div>`
+        ).join('');
+    }
+    
+    // Update progress bar
+    function updateProgress(targetProgress, stageText) {
+        const duration = 500; // 500ms to animate to target
+        const startProgress = currentProgress;
+        const startTime = Date.now();
+        
+        function animate() {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            currentProgress = startProgress + (targetProgress - startProgress) * progress;
+            
+            if (progressFill) {
+                progressFill.style.width = `${currentProgress}%`;
+            }
+            if (progressText && stageText) {
+                progressText.textContent = stageText;
+            }
+            
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            }
+        }
+        animate();
+    }
+    
+    // Mark stage as complete
+    function markStageComplete(stageIndex) {
+        if (progressStages) {
+            const stageEl = progressStages.querySelector(`[data-stage="${stageIndex}"]`);
+            if (stageEl) {
+                stageEl.classList.add('completed');
+            }
+        }
+    }
+    
+    // Start progress simulation
+    let stageIndex = 0;
+    function simulateProgress() {
+        if (stageIndex < stages.length) {
+            const stage = stages[stageIndex];
+            updateProgress(stage.progress, stage.name);
+            markStageComplete(stageIndex);
+            stageIndex++;
+            
+            if (stageIndex < stages.length) {
+                // Wait a bit before next stage (simulate processing time)
+                setTimeout(simulateProgress, 1500 + Math.random() * 1000);
+            } else {
+                // Final stage
+                updateProgress(100, 'Analysis complete!');
+            }
+        }
+    }
+    
+    // Start progress simulation
+    if (progressFill && progressText && progressStages) {
+        updateProgress(5, 'Starting analysis...');
+        setTimeout(simulateProgress, 300);
     }
     
     // Get original user query from trace metadata or stored value
@@ -232,6 +329,18 @@ async function analyzeTrace() {
     } catch (error) {
         console.error('Error analyzing trace:', error);
         console.error('Error details:', error.stack);
+        
+        // Reset progress on error
+        if (progressFill) {
+            progressFill.style.width = '0%';
+        }
+        if (progressText) {
+            progressText.textContent = 'Error occurred';
+        }
+        if (progressStages) {
+            progressStages.innerHTML = '';
+        }
+        
         // Show more detailed error message
         let errorMsg = 'Error analyzing trace: ' + error.message;
         if (error.message.includes('Failed to fetch')) {
@@ -239,8 +348,26 @@ async function analyzeTrace() {
         }
         alert(errorMsg);
     } finally {
-        analyzeBtn.disabled = false;
-        loadingDiv.style.display = 'none';
+        // Complete progress bar
+        if (progressFill) {
+            progressFill.style.width = '100%';
+        }
+        if (progressText) {
+            progressText.textContent = 'Analysis complete!';
+        }
+        
+        // Hide loading after a brief delay
+        setTimeout(() => {
+            analyzeBtn.disabled = false;
+            loadingDiv.style.display = 'none';
+            // Reset progress
+            if (progressFill) {
+                progressFill.style.width = '0%';
+            }
+            if (progressStages) {
+                progressStages.innerHTML = '';
+            }
+        }, 500);
     }
 }
 
@@ -258,7 +385,7 @@ function displaySummary(summary, culprits) {
     const html = `
         <h3>Analysis Summary</h3>
         <p><strong>Messages Checked:</strong> ${summary.total_messages_checked || 0}</p>
-        <p><strong>Total Culprits Found:</strong> ${summary.culprits_found || 0}</p>
+        <p><strong>Total Responsible Nodes Found:</strong> ${summary.culprits_found || 0}</p>
         ${summary.culprits_from_origin !== undefined ? `<p><strong>From Culprit Detection:</strong> ${summary.culprits_from_origin || 0}</p>` : ''}
         ${summary.culprits_from_failure !== undefined ? `<p><strong>From Error Detection:</strong> ${summary.culprits_from_failure || 0}</p>` : ''}
         <p><strong>Confidence Threshold:</strong> ${(summary.confidence_threshold || 0).toFixed(2)}</p>
@@ -310,7 +437,7 @@ function displayCulprits(culprits) {
                 <div class="culprit-header">
                     <span class="culprit-type">${culprit.type || 'Unknown'}</span>
                     <div class="badge-container">
-                        ${isResponsible ? '<span class="responsible-badge">🎯 RESPONSIBLE NODE</span>' : ''}
+                        ${isResponsible ? '<span class="responsible-badge">🎯 RESPONSIBLE</span>' : ''}
                         ${isFailure ? '<span class="failure-badge">❌ FAILURE</span>' : ''}
                     </div>
                     <span class="confidence-badge">${(confidence * 100).toFixed(0)}%</span>
@@ -476,14 +603,14 @@ function initializeGraph(traceData) {
             if (isResponsible) {
                 const responsibleBadge = document.createElement('span');
                 responsibleBadge.className = 'responsible-badge';
-                responsibleBadge.textContent = `🎯 RESPONSIBLE NODE (${Math.round(confidence * 100)}%)`;
+                responsibleBadge.textContent = `🎯 RESPONSIBLE`;
                 badgeContainer.appendChild(responsibleBadge);
             }
             
             if (isFailure) {
                 const failureBadge = document.createElement('span');
                 failureBadge.className = 'failure-badge';
-                failureBadge.textContent = `❌ FAILURE (${Math.round(confidence * 100)}%)`;
+                failureBadge.textContent = `❌ FAILURE`;
                 badgeContainer.appendChild(failureBadge);
             }
             

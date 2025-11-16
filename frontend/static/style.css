@@ -697,33 +697,40 @@ body {
 
 .badge-container {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     align-items: center;
+    flex-wrap: wrap;
 }
 
 .responsible-badge {
     background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); /* Red for responsible nodes */
     color: white;
-    padding: 6px 12px;
-    border-radius: 8px;
-    font-size: 0.8em;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.7em;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.2px;
     box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+    white-space: nowrap;
+    flex-shrink: 1;
+    min-width: fit-content;
 }
 
 .failure-badge {
     background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); /* Orange for failures */
     color: white;
-    padding: 6px 12px;
-    border-radius: 8px;
-    font-size: 0.8em;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.7em;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.2px;
     box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
     animation: pulse-badge 2s ease-in-out infinite;
+    white-space: nowrap;
+    flex-shrink: 1;
+    min-width: fit-content;
 }
 
 @keyframes pulse-badge {
@@ -737,15 +744,28 @@ body {
 
 .culprit-header {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 10px;
-    gap: 12px;
+    gap: 8px;
+    row-gap: 6px;
 }
 
 .culprit-header .badge-container {
-    flex: 1;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: calc(100% - 120px); /* Reserve space for type and confidence badge */
     justify-content: flex-start;
+}
+
+.culprit-header .confidence-badge {
+    flex-shrink: 0;
+    white-space: nowrap;
+    margin-left: auto;
 }
 
 .culprit-type {
@@ -753,6 +773,8 @@ body {
     color: #bbbbbb;
     font-size: 0.9em;
     text-transform: uppercase;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .confidence-badge {
@@ -785,6 +807,74 @@ body {
     padding: 20px;
     color: #908b8b;
     font-style: italic;
+}
+
+.progress-container {
+    width: 100%;
+    margin-top: 16px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: rgba(148, 163, 184, 0.2);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #0066FF 0%, #6B46C1 50%, #00D9FF 100%);
+    border-radius: 4px;
+    width: 0%;
+    transition: width 0.3s ease;
+    box-shadow: 0 0 10px rgba(0, 102, 255, 0.5);
+}
+
+.progress-text {
+    font-size: 0.9em;
+    color: #CBD5E1;
+    margin-bottom: 12px;
+    font-weight: 500;
+    min-height: 1.5em;
+}
+
+.progress-stages {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    text-align: left;
+    margin-top: 12px;
+}
+
+.progress-stage {
+    font-size: 0.85em;
+    color: #94A3B8;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: rgba(148, 163, 184, 0.1);
+    transition: all 0.3s ease;
+    position: relative;
+    padding-left: 28px;
+}
+
+.progress-stage::before {
+    content: "○";
+    position: absolute;
+    left: 10px;
+    color: #94A3B8;
+    font-size: 1.2em;
+}
+
+.progress-stage.completed {
+    color: #00D9FF;
+    background: rgba(0, 217, 255, 0.15);
+}
+
+.progress-stage.completed::before {
+    content: "✓";
+    color: #00D9FF;
 }
 
 .empty-state {

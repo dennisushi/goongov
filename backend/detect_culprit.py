@@ -15,7 +15,7 @@ from langchain_core.prompts import ChatPromptTemplate
 try:
     import sys
     from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent / "core"))
+    sys.path.insert(0, str(Path(__file__).parent.parent / "core"))
     from react_agent.holistic_ai_bedrock import get_chat_model
     HAS_BEDROCK = True
 except ImportError:
@@ -24,6 +24,8 @@ except ImportError:
         HAS_BEDROCK = False
     except ImportError:
         HAS_BEDROCK = None
+if HAS_BEDROCK is None:
+    raise ValueError("Could not import LLM provider")
 
 
 def _extract_llm_from_agent(agent_instance) -> Any:
@@ -575,7 +577,7 @@ def find_decisive_error_step(judge_llm, query: str, log: list[BaseMessage], resp
     prompt_template = ChatPromptTemplate.from_messages([
         ("system", """
 You are a high-precision decision analyst. 
-You must determine if the *very last step* in the provided history
+You must determine which is the *very first step* in the provided history which
 contains an error or incorrect decision that led to a failure.
 
 The user's goal: {query}
