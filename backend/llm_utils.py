@@ -21,25 +21,28 @@ else:
 # ============================================
 # 🔑 Langfuse Key Extraction
 # ============================================
-LANGFUSE_PUBLIC_KEY = "pk-lf-43f9272f-d4a4-4efa-9a8c-d697f987f9b7"
-LANGFUSE_SECRET_KEY = "sk-lf-c95015fa-b35d-4885-b18c-cc10a21b6fba"
-LANGFUSE_HOST = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
+need_langfuse = False
 
-if not LANGFUSE_PUBLIC_KEY or not LANGFUSE_SECRET_KEY:
-    print("⚠️  Langfuse keys missing. Set LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY in .env.")
-else:
-    print("✅ Langfuse keys loaded")
+if need_langfuse:
+    LANGFUSE_PUBLIC_KEY = "pk-lf-43f9272f-d4a4-4efa-9a8c-d697f987f9b7"
+    LANGFUSE_SECRET_KEY = "sk-lf-c95015fa-b35d-4885-b18c-cc10a21b6fba"
+    LANGFUSE_HOST = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
 
-# Initialize Langfuse client
-try:
-    langfuse_client = langfuse.Langfuse(
-        public_key=LANGFUSE_PUBLIC_KEY,
-        secret_key=LANGFUSE_SECRET_KEY,
-        host=LANGFUSE_HOST
-    )
-    print("✅ Langfuse client initialized")
-except Exception as e:
-    print(f"❌ Failed to initialize Langfuse client: {e}")
+    if not LANGFUSE_PUBLIC_KEY or not LANGFUSE_SECRET_KEY:
+        print("⚠️  Langfuse keys missing. Set LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY in .env.")
+    else:
+        print("✅ Langfuse keys loaded")
+
+    # Initialize Langfuse client
+    try:
+        langfuse_client = langfuse.Langfuse(
+            public_key=LANGFUSE_PUBLIC_KEY,
+            secret_key=LANGFUSE_SECRET_KEY,
+            host=LANGFUSE_HOST
+        )
+        print("✅ Langfuse client initialized")
+    except Exception as e:
+        print(f"❌ Failed to initialize Langfuse client: {e}")
 
 # ============================================
 # Import Holistic AI Bedrock helper (Optional)
