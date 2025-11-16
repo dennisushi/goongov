@@ -1,4 +1,4 @@
-# goongov
+# Devise: Agentic Government Council 
 
 Project overview
 
