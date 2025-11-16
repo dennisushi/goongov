@@ -14,5 +14,25 @@ Our solution is a framework built on three core pillars:
 This repository contains the core Python code to run the `GovAgent` and, more importantly, the `Hybrid Failure Judge` to analyze its outputs.
 
 ---
-## Setup instructions
+## 🚀 Setup Instructions
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/dennisushi/goongov/
+cd goongov
+```
+
+### 2. Create a Virtual Environment
+
+It's highly recommended to use a virtual environment to manage dependencies.
+
+```bash
+# For macOS/Linux
+python3 -m venv venv
+source venv/bin/activate
+```
+# For Windows
+python -m venv venv
+.\venv\Scripts\activate
 ## How to run/test
