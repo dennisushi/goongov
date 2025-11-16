@@ -1,1 +1,3 @@
 hackathon-venv/
+*.pyc
+__pycache__/
