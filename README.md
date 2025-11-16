@@ -1,7 +1,7 @@
 # Devise: Agentic Government Council 
 
-Project overview
+## Project overview
 
-Setup instructions
+## Setup instructions
 
-How to run/test
+## How to run/test
