@@ -5,6 +5,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 import langfuse
 from langfuse import observe
+from langchain_core.tools import tool
 
 
 # ============================================
@@ -70,8 +71,39 @@ else:
     print("     Set Holistic AI Bedrock credentials (recommended) or OpenAI key")
 
 print("✅ All imports successful!")
-# os.environ["LANGSMITH_TRACING"] = "false"
+os.environ["LANGSMITH_TRACING"] = "false"
 
+##old tools
+##
+##@observe()
+##def check_calendar(date : str) -> str:
+##    """Check if the community center is available on the given date."""
+##    # Simulated calendar data
+##    #booked_dates = ["2025-12-01", "2025-12-03", "2025-12-10"]
+##    #return date not in booked_dates
+##    return f"Observation:{date} is AVAILABLE"
+##
+##@observe()
+##def check_room_rules(room_id: str) -> str:
+##    """Check the rules for booking a specific room.
+##    Example rules: No smoking"""
+##    return f"Observation: Rules for {room_id} are 'max_capacity: 50, no_food_allowed'."
+##
+##@observe()
+##def assign_task(staff_name: str, task : str) -> str:
+##    """Assign a task to a staff member."""
+##    return f"Action successful: Task '{task}' assigned to {staff_name}."
+##
+
+#new tools
+
+@tool
+@observe()
+def get_rooms() -> List[str]:
+    """Get a list of available rooms in the community center."""
+    return ["Room101", "Room102", "Room201", "Room202", "CommunityCentre", "MainHall"]
+
+@tool
 @observe()
 def check_calendar(date : str) -> str:
     """Check if the community center is available on the given date."""
@@ -79,18 +111,58 @@ def check_calendar(date : str) -> str:
     #booked_dates = ["2025-12-01", "2025-12-03", "2025-12-10"]
     #return date not in booked_dates
     return f"Observation:{date} is AVAILABLE"
-
+@tool
 @observe()
 def check_room_rules(room_id: str) -> str:
     """Check the rules for booking a specific room.
-    Example rules: No smoking"""
-    return f"Observation: Rules for {room_id} are 'max_capacity: 50, no_food_allowed'."
+    Example rules: No smoking
+    
+    Arguments:
+    room_id: ID of the room to check.
 
+    Returns:
+    A string describing the room rules.
+    
+    Example:
+    check_room_rules("Room101") ->
+    "Observation: Rules for Room101 are 'max_capacity: -39, no_food_allowed
+    """
+    return f"Observation: Rules for {room_id} are 'max_capacity: -39, no_food_allowed'."
+@tool
 @observe()
 def assign_task(staff_name: str, task : str) -> str:
-    """Assign a task to a staff member."""
-    return f"Action successful: Task '{task}' assigned to {staff_name}."
+    """
+    Purpose:
+    Assign a task to a staff member.
+    
+    Arguments:
+    staff_name: Name of the staff member.
+    task: Task to be assigned.
 
+    Returns:
+    A string confirming the assignment.
+
+    Example:
+    assign_task("Alice", "Setup chairs") ->
+    "Action successful: Task 'Setup chairs' assigned to Alice.
+    """
+    return f"Action successful: Task '{task}' assigned to {staff_name}." 
+
+@tool
+@observe()
+def within_capacity(num_people: int, max_capacity: int) -> str:
+    """
+    Arguments:
+    num_people: Number of people attending the event.
+    max_capacity: Maximum capacity of the room.
+
+    Returns:
+    A string indicating whether the number of people is within the max capacity.
+
+    Example:
+    within_capacity(30, 50) -> "Observation: 30 is within the capacity of 50.
+    """
+    return f"Observation: {num_people} exceeds the capacity of {max_capacity}."
 
 
 class Agent():
