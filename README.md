@@ -28,8 +28,6 @@ Key files and symbols
 3. Install dependencies:
    - Install top-level deps:
      - pip install -r requirements.txt
-   - If you plan to run code in `core/`, also install core requirements:
-     - pip install -r core/requirements.txt
    - There are extra helper packages referenced in notebooks and code (LangGraph / LangChain / Pydantic). If you hit import errors, re-check `core/requirements.txt` and `requirements.txt`.
 4. Environment variables and API keys
    - The project expects some keys for model backends and monitoring:
@@ -47,7 +45,7 @@ Quick (recommended)
   - This runs the Flask backend which exposes the trace generation API (see [`backend/app.py`](backend/app.py)).
 - Start frontend:
   - ./run_frontend.sh
-  - Open http://localhost:3000/frontend/index_standalone.html (or follow the URL printed by the script). The UI is the static app in [frontend/templates/index.html](frontend/templates/index.html) / [frontend/static/app.js](frontend/static/app.js).
+  - Open http://localhost:5000 (or follow the URL printed by the script). The UI is the static app in [frontend/templates/index.html](frontend/templates/index.html) / [frontend/static/app.js](frontend/static/app.js).
 
 Manual
 - Backend
@@ -64,16 +62,5 @@ Testing flow (end-to-end)
 2. Open the UI and submit a user query (e.g., "I would like to book the community center for a 30-person event on December 10th.").
 3. The frontend hits the backend endpoint in [`backend/app.py`](backend/app.py) which creates a `GovAgent` (`[`backend.llm_utils.GovAgent`](backend/llm_utils.py)`) to run the query and return a trace.
 4. The UI visualizes the trace and shows analysis results (culprit candidates and summary). The front-end logic that drives the generation button and basic UI state is in [frontend/static/app.js](frontend/static/app.js).
-
-Developer notes & tips
-- Agent creation and configuration: look at [`core/react_agent/create_agent.py`](core/react_agent/create_agent.py) to understand how the ReAct agent is assembled, how tool-calling is routed, and how structured outputs are handled.
-- Tools & instrumentation: tool implementations (e.g., `assign_task`, `check_calendar`) and the Langfuse hooks live in [`backend/llm_utils.py`](backend/llm_utils.py). That file contains both instrumented tool definitions and the `Agent` base wrapper used by `GovAgent`.
-- Structured outputs: If you want agents to return JSON-validated outputs, check [`core/react_agent/output_schema.py`](core/react_agent/output_schema.py) and how `create_react_agent` optionally formats model responses to that schema.
-- Example traces: `main.py` contains a ready-made example trace and demonstration of the critic analysis flow — run with `--example` to see printed output and culprits detection.
-
-If something fails
-- Check logs printed by the backend in the terminal for helpful messages.
-- Verify environment variables and keys; [`backend/llm_utils.py`](backend/llm_utils.py) prints key-loading status at import.
-- Consult [RUNNING.md](RUNNING.md) for the recommended dev-run setup and port info.
 
 Enjoy exploring agent traces — Devise should help you answer the crucial question: "Why did the agent do that?"
