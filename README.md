@@ -23,15 +23,19 @@ Key files and symbols
 1. Clone the repo and open the project root.
 2. Create and activate a Python virtual environment.
    - Example:
-     - python3 -m venv .venv
-     - source .venv/bin/activate
+   ```bash
+     python3 -m venv .venv
+     source .venv/bin/activate
+    ```
 3. Install dependencies:
-   - Install top-level deps:
-     - pip install -r requirements.txt
-   - There are extra helper packages referenced in notebooks and code (LangGraph / LangChain / Pydantic). If you hit import errors, re-check `core/requirements.txt` and `requirements.txt`.
+   - Install top-level dependencies:
+   ```bash
+     pip install -r requirements.txt
+    ```
+   - There are extra helper packages referenced in notebooks and code (LangGraph / LangChain / Pydantic). If you hit import errors, re-check `requirements.txt`.
 4. Environment variables and API keys
    - The project expects some keys for model backends and monitoring:
-     - HOLISTIC_AI_TEAM_ID and HOLISTIC_AI_API_TOKEN — for Holistic AI / Bedrock helper used by [`backend.llm_utils.GovAgent`](backend/llm_utils.py).
+     - `HOLISTIC_AI_TEAM_ID` and `HOLISTIC_AI_API_TOKEN` — for Holistic AI / Bedrock helper used by [`backend.llm_utils.GovAgent`](backend/llm_utils.py).
      - OPENAI_API_KEY — optional fallback if Bedrock credentials are not set.
      - LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY — optional, used in [`backend/llm_utils.py`](backend/llm_utils.py) to initialize Langfuse instrumentation.
    - You can put these into a `.env` file at the repo root (the code loads ../.env from some notebook contexts). The repo includes examples that print status when keys are missing; see the top of [`backend/llm_utils.py`](backend/llm_utils.py) for details.
@@ -41,10 +45,10 @@ There are convenience scripts and manual options.
 
 Quick (recommended)
 - Start backend:
-  - ./run_backend.sh
+  ```./run_backend.sh```
   - This runs the Flask backend which exposes the trace generation API (see [`backend/app.py`](backend/app.py)).
 - Start frontend:
-  - ./run_frontend.sh
+  ```./run_frontend.sh```
   - Open http://localhost:5000 (or follow the URL printed by the script). The UI is the static app in [frontend/templates/index.html](frontend/templates/index.html) / [frontend/static/app.js](frontend/static/app.js).
 
 Manual
@@ -52,7 +56,7 @@ Manual
   - Activate venv and run the Flask app module (or run the script the backend uses). The backend serves the API that the frontend calls:
     - POST /api/generate-trace — implemented in [`backend/app.py`](backend/app.py).
   - You can also run example flows from `main.py`:
-    - python main.py --example
+    - ```python main.py --example```
     - This will run a pre-baked example trace and print analysis output to the console (see `main.py` for how example traces and the critic analysis are invoked).
 - Frontend
   - The frontend is static and can be served by any HTTP server. The convenience script runs a small server and points the browser to [frontend/index_standalone.html](frontend/index_standalone.html).
