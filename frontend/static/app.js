@@ -233,21 +233,41 @@ async function analyzeTrace() {
         }
     }
     
+    // Track if response has been received and interval for checking
+    let responseReceived = false;
+    let checkInterval = null;
+    
     // Start progress simulation
     let stageIndex = 0;
     function simulateProgress() {
         if (stageIndex < stages.length) {
             const stage = stages[stageIndex];
-            updateProgress(stage.progress, stage.name);
+            // Don't go to 100% until response is received
+            const targetProgress = responseReceived ? stage.progress : Math.min(stage.progress, 90);
+            updateProgress(targetProgress, stage.name);
             markStageComplete(stageIndex);
             stageIndex++;
             
             if (stageIndex < stages.length) {
                 // Wait a bit before next stage (simulate processing time)
-                setTimeout(simulateProgress, 1500 + Math.random() * 1000);
+                setTimeout(simulateProgress, 800 + Math.random() * 500);
             } else {
-                // Final stage
-                updateProgress(100, 'Analysis complete!');
+                // Final stage - but wait for actual response
+                if (responseReceived) {
+                    updateProgress(100, 'Analysis complete!');
+                } else {
+                    updateProgress(90, 'Waiting for results...');
+                    // Keep checking if response arrived
+                    checkInterval = setInterval(() => {
+                        if (responseReceived) {
+                            if (checkInterval) {
+                                clearInterval(checkInterval);
+                                checkInterval = null;
+                            }
+                            updateProgress(100, 'Analysis complete!');
+                        }
+                    }, 100);
+                }
             }
         }
     }
@@ -309,9 +329,25 @@ async function analyzeTrace() {
         
         const data = await response.json();
         
+        // Mark response as received
+        responseReceived = true;
+        
         // Check for error in response
         if (data.error) {
             throw new Error(data.error);
+        }
+        
+        // Complete progress bar now that we have the response
+        if (progressFill) {
+            progressFill.style.width = '100%';
+        }
+        if (progressText) {
+            progressText.textContent = 'Analysis complete!';
+        }
+        // Mark all remaining stages as complete
+        if (progressStages) {
+            const remainingStages = progressStages.querySelectorAll('.progress-stage:not(.completed)');
+            remainingStages.forEach(stage => stage.classList.add('completed'));
         }
         
         // Display summary
@@ -348,15 +384,24 @@ async function analyzeTrace() {
         }
         alert(errorMsg);
     } finally {
-        // Complete progress bar
-        if (progressFill) {
+        // Mark response as received (even on error)
+        responseReceived = true;
+        
+        // Clean up check interval if it exists
+        if (checkInterval) {
+            clearInterval(checkInterval);
+            checkInterval = null;
+        }
+        
+        // Complete progress bar only if not already completed
+        if (progressFill && progressFill.style.width !== '100%') {
             progressFill.style.width = '100%';
         }
-        if (progressText) {
+        if (progressText && !progressText.textContent.includes('complete')) {
             progressText.textContent = 'Analysis complete!';
         }
         
-        // Hide loading after a brief delay
+        // Hide loading after a brief delay to show completion
         setTimeout(() => {
             analyzeBtn.disabled = false;
             loadingDiv.style.display = 'none';
@@ -367,7 +412,10 @@ async function analyzeTrace() {
             if (progressStages) {
                 progressStages.innerHTML = '';
             }
-        }, 500);
+            // Reset response flag
+            responseReceived = false;
+            checkInterval = null;
+        }, 800);
     }
 }
 
