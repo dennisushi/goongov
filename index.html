@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trace Analysis - Standalone Frontend</title>
+    <link rel="stylesheet" href="frontend/static/style.css">
+</head>
+<body>
+    <div class="app-wrapper">
+        <div class="top-header">
+            <div class="logo">
+                <img src="frontend/static/images/image_1.webp" alt="Logo" class="logo-image">
+                <span class="logo-text">
+                    <span class="logo-prefix">evise by</span>
+                    <span class="logo-name">GoonGov</span>
+                </span>
+            </div>
+        </div>
+
+        <div class="container">
+            <!-- Left Panel: Trace Generation and Visualization -->
+            <div class="main-content">
+                <!-- Trace Generation Section -->
+                <div class="trace-generation-section">
+                    <h3>Generate Execution Trace</h3>
+                    <div class="trace-input-group">
+                        <textarea 
+                            id="user-query-input" 
+                            placeholder="Enter your query here (e.g., 'Book a room for a meeting on Dec 5th')"
+                            rows="3"
+                        ></textarea>
+                        <div class="trace-input-actions">
+                            <select id="model-select">
+                                <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+                                <option value="gpt-4">GPT-4</option>
+                            </select>
+                            <button id="generate-trace-btn" onclick="generateTrace()">Send User Query</button>
+                        </div>
+                    </div>
+                    <div id="trace-generation-loading" style="display: none;">
+                        <p>Generating trace...</p>
+                    </div>
+                </div>
+
+                <!-- Execution Trace Section -->
+                <div class="trace-section">
+                    <div class="graph-header">
+                        <h3>Execution Trace</h3>
+                        <div class="trace-view-toggle">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="trace-view-toggle" onchange="toggleTraceView()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="toggle-label" id="trace-view-label">Full Trace</span>
+                        </div>
+                    </div>
+                    <div id="graph-container">
+                        <div class="empty-state">
+                            <p>No trace data loaded. Enter a query above to generate a trace.</p>
+                        </div>
+                    </div>
+                    <div id="graph-loading" style="display: none;">
+                        <p>Loading trace visualization...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Analysis Controls and Results -->
+            <div class="sidebar">
+                <!-- Query to Critic Section -->
+                <div class="query-section">
+                    <h3>Query to Critic</h3>
+                    <textarea 
+                        id="critic-query-input" 
+                        placeholder="Enter your question about the trace (e.g., 'why did they choose this room?')"
+                        rows="3"
+                    ></textarea>
+                    
+                    <!-- Analysis Toggles -->
+                    <div class="analysis-toggles">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="toggle-find-issue-origin" checked>
+                            <span>Culprit Detection (find_issue_origin)</span>
+                        </label>
+                        <label class="toggle-label">
+                            <input type="checkbox" id="toggle-failure-analysis" checked>
+                            <span>Error Detection (failure_analysis)</span>
+                        </label>
+                    </div>
+                    
+                    <button id="analyze-btn" onclick="analyzeTrace()">Analyze Trace</button>
+                    <div id="query-loading" class="loading" style="display: none;">
+                        <div class="progress-container">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progress-fill"></div>
+                            </div>
+                            <div class="progress-text" id="progress-text">Initializing analysis...</div>
+                            <div class="progress-stages" id="progress-stages"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Culprit Analysis Section -->
+                <div class="culprit-section">
+                    <h3>Analysis</h3>
+                    <div id="summary"></div>
+                    <div id="culprits-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Set API base URL for standalone frontend -->
+    <script>
+        // Set backend API URL - for GitHub Pages, this will need to point to your backend server
+        // You can override this by setting window.API_BASE_URL before this script loads
+        window.API_BASE_URL = window.API_BASE_URL || 'http://localhost:5000';
+    </script>
+    <script src="frontend/static/app.js"></script>
+</body>
+</html>
+
