@@ -64,7 +64,7 @@ Manual
 Testing flow (end-to-end)
 1. Start backend and frontend per the Quick section.
 2. Open the UI and submit a user query (e.g., "I would like to book the community center for a 30-person event on December 10th.").
-3. The frontend hits the backend endpoint in [`backend/app.py`](backend/app.py) which creates a `GovAgent` (`[`backend.llm_utils.GovAgent`](backend/llm_utils.py)`) to run the query and return a trace.
+3. The frontend hits the backend endpoint in [`backend/app.py`](backend/app.py) which creates a `GovAgent` ([`backend.llm_utils.GovAgent`](backend/llm_utils.py)`) to run the query and return a trace.
 4. The UI visualizes the trace and shows analysis results (culprit candidates and summary). The front-end logic that drives the generation button and basic UI state is in [frontend/static/app.js](frontend/static/app.js).
 
 Enjoy exploring agent traces — Devise should help you answer the crucial question: "Why did the agent do that?"
