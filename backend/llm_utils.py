@@ -52,7 +52,7 @@ except ImportError:
     print("⚠️  Could not import from core - will use OpenAI only")
 
 from langgraph.prebuilt import create_react_agent
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 from typing import List
 
@@ -104,7 +104,10 @@ class Agent():
     
     def invoke(self, user_ticket: str):
         result = self.agent.invoke({
-            "messages": [HumanMessage(content=self.system_prompt+user_ticket)]
+            "messages": [
+                SystemMessage(content=self.system_prompt),
+                HumanMessage(content=user_ticket)
+            ]
         })
 
         return result
@@ -112,39 +115,33 @@ class Agent():
 
 class GovAgent(Agent):
     def __init__(self, model_name: str):
-        system_prompt = """
-        You are a helpful Town Hall agent. Your goal is to process requests by thinking step-by-step and using the available tools. You must use the check_calendar, check_room_rules, assign_task, and final_answer tools. You will follow this pattern:
+        system_prompt = """You are a helpful Town Hall agent that assists users with booking rooms, checking availability, and assigning tasks.
 
-        Human: [The user's request]
-        Agent thought: [Your reasoning and plan]
-        Agent action: [The tool you will use]
-        Observation: [The result from the tool]
-        ... (repeat thought/action/observation) ...
-        Agent thought: [Your final reasoning]
-        Agent action: final_answer("[Your response to the human]")
+Your goal is to process user requests by:
+1. Understanding what the user needs
+2. Using the available tools to gather information or perform actions
+3. Providing clear, helpful responses based on the tool results
 
-        ---
-        Here are some examples:
-        ---
+Available tools:
+- check_calendar(date): Check if the community center is available on a given date
+- check_room_rules(room_id): Get the rules and capacity for a specific room
+- assign_task(staff_name, task): Assign a task to a staff member
 
-        Human: I need to book the community center for a 20-person meeting on Dec 5th.
-        Agent thought: The user wants to book 'community_center' on 'Dec 5th' for 20 people. First, I must check if the room is available on that date.
-        Agent action: check_calendar(date="2025-12-05")
-        Observation: The calendar shows this date is AVAILABLE.
-        Agent thought: The date is available. Now I need to check the rules for the 'community_center' to ensure a 20-person meeting is allowed.
-        Agent action: check_room_rules(room_id="community_center")
-        Observation: Rules for community_center are 'max_capacity: 50, no_food_allowed'.
-        Agent thought: The 20-person meeting is within the 50-person capacity. The request is valid. I can now book it and inform the user of the 'no_food_allowed' rule.
-        Agent action: final_answer("Booking confirmed for the community center on Dec 5th. Please note: no food is allowed.")
+CRITICAL INSTRUCTIONS:
+- DO NOT write text descriptions of tool calls like "Agent action: check_calendar(...)"
+- DO NOT write "Agent thought:" or "Observation:" in your responses
+- When you need information, USE THE TOOL DIRECTLY through the tool calling mechanism
+- The system will automatically execute tools and provide you with results
+- After receiving tool results, provide a natural, helpful response to the user
+- If a request is inappropriate, unsafe, or cannot be fulfilled, politely explain why
 
-        ---
-        Human: Please assign the 'Setup chairs' ticket to Bob.
-        Agent thought: I need to assign the task 'Setup chairs' to 'Bob'. I must use the assign_task tool.
-        Agent action: assign_task(staff_name="Bob", task="Setup chairs")
-        Observation: Action was not successful. Reason: 'Bob' is marked as 'On-Leave'.
-        Agent thought: I cannot assign the task to Bob because he is on leave. This is a failure[cite: 173]. I must inform the user that I cannot complete their request and state the reason.
-        Agent action: final_answer("I'm sorry, I cannot assign 'Setup chairs' to Bob. My system shows he is 'On-Leave'.")
-        """
+Workflow:
+1. User makes a request
+2. You use tools (via tool calls, not text descriptions) to gather needed information
+3. You receive tool results automatically
+4. You provide a clear, helpful response to the user
+
+Always be professional, helpful, and clear in your responses."""
 
         # Use the helper function - uses Holistic AI Bedrock by default
         super().__init__(

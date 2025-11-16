@@ -1,8 +1,74 @@
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 from backend.trace_to_graph import print_message_summary
-from backend.detect_culprit import find_issue_origin
+from backend.detect_culprit import find_issue_origin, failure_analysis
 from backend.llm_utils import GovAgent, Agent
 import json
+
+
+def combine_culprits(culprits_origin, culprits_failure):
+    """
+    Combine culprits from both find_issue_origin and failure_analysis.
+    Avoids duplicates by message ID, and merges explanations.
+    
+    Returns:
+        List of tuples: (message, confidence, explanation, sources)
+        where sources is a list indicating which method(s) found it
+    """
+    # Create a dict keyed by message ID to track unique culprits
+    culprit_dict = {}
+    
+    # Add culprits from find_issue_origin (culprit detection)
+    for msg, confidence, explanation in culprits_origin:
+        msg_id = getattr(msg, 'id', None) or id(msg)
+        if msg_id not in culprit_dict:
+            culprit_dict[msg_id] = {
+                'message': msg,
+                'confidence': confidence,
+                'explanations': [],
+                'sources': []
+            }
+        culprit_dict[msg_id]['explanations'].append(f"[Culprit Detection] {explanation}")
+        if 'Culprit Detection' not in culprit_dict[msg_id]['sources']:
+            culprit_dict[msg_id]['sources'].append('Culprit Detection')
+        # Use max confidence if same message found by both
+        culprit_dict[msg_id]['confidence'] = max(culprit_dict[msg_id]['confidence'], confidence)
+    
+    # Add culprits from failure_analysis (error detection)
+    for msg, confidence, explanation in culprits_failure:
+        msg_id = getattr(msg, 'id', None) or id(msg)
+        if msg_id not in culprit_dict:
+            culprit_dict[msg_id] = {
+                'message': msg,
+                'confidence': confidence,
+                'explanations': [],
+                'sources': []
+            }
+        culprit_dict[msg_id]['explanations'].append(f"[Error Detection] {explanation}")
+        if 'Error Detection' not in culprit_dict[msg_id]['sources']:
+            culprit_dict[msg_id]['sources'].append('Error Detection')
+        # Use max confidence if same message found by both
+        culprit_dict[msg_id]['confidence'] = max(culprit_dict[msg_id]['confidence'], confidence)
+    
+    # Convert back to list of tuples, combining explanations
+    combined = []
+    for msg_id, data in culprit_dict.items():
+        combined_explanation = " | ".join(data['explanations'])
+        sources = data['sources']
+        
+        # Update message metadata for visualization compatibility
+        data['message']._culprit_metadata = {
+            'is_culprit': True,
+            'confidence': data['confidence'],
+            'explanation': combined_explanation,
+            'sources': sources
+        }
+        
+        combined.append((data['message'], data['confidence'], combined_explanation, sources))
+    
+    # Sort by confidence (highest first)
+    combined.sort(key=lambda x: x[1], reverse=True)
+    
+    return combined
 
 
 example_output = {
@@ -231,29 +297,97 @@ if __name__ == "__main__":
             user_query = query
         
         print(f"\nAnalyzing trace with query: '{user_query}'...\n")
-
-        culprits, summary = find_issue_origin(
-            result, 
-            user_query, 
+        
+        # Run both analyses
+        print("=" * 80)
+        print("Running Culprit Detection (find_issue_origin)...")
+        print("=" * 80)
+        culprits_origin, summary_origin = find_issue_origin(
+            result,
+            user_query,
             llm_model=critic_agent,
             confidence_threshold=0.5
         )
+        
+        print("\n" + "=" * 80)
+        print("Running Error Detection (failure_analysis)...")
+        print("=" * 80)
+        # Extract original user query from trace (first HumanMessage)
+        original_user_query = user_ticket  # Use the original ticket that generated the trace
+        for msg in result['messages']:
+            if isinstance(msg, HumanMessage):
+                # Try to extract just the user query, not the system prompt
+                content = msg.content
+                if content and len(content) > 500:
+                    # Likely contains system prompt, try to extract just the user query
+                    lines = content.split('\n')
+                    for line in reversed(lines):
+                        if line.strip() and not line.strip().startswith('You are'):
+                            original_user_query = line.strip()
+                            break
+                else:
+                    original_user_query = content
+                break
+        
+        culprits_failure, summary_failure = failure_analysis(
+            result,
+            original_user_query,
+            judge_llm=critic_agent
+        )
+        
+        # Combine results from both methods
+        print("\n" + "=" * 80)
+        print("Combining results from both methods...")
+        print("=" * 80)
+        culprits = combine_culprits(culprits_origin, culprits_failure)
+        
+        # Combine summaries
+        summary = {
+            'total_messages_checked': max(
+                summary_origin.get('total_messages_checked', 0),
+                summary_failure.get('total_messages_checked', 0)
+            ),
+            'culprits_found': len(culprits),
+            'culprits_from_origin': len(culprits_origin),
+            'culprits_from_failure': len(culprits_failure),
+            'confidence_threshold': summary_origin.get('confidence_threshold', 0.5),
+            'culprit_message_ids': list(set(
+                summary_origin.get('culprit_message_ids', []) +
+                summary_failure.get('culprit_message_ids', [])
+            )),
+            'responsible_component': summary_failure.get('responsible_component'),
+            'decisive_error_step_index': summary_failure.get('decisive_error_step_index')
+        }
     
     # Display summary
     print("\n" + "=" * 80)
     print("ANALYSIS SUMMARY")
     print("=" * 80)
     print(f"Total messages checked: {summary.get('total_messages_checked', 0)}")
-    print(f"Culprits found: {summary.get('culprits_found', 0)}")
+    print(f"Total culprits found (combined): {summary.get('culprits_found', 0)}")
+    print(f"  - From Culprit Detection: {summary.get('culprits_from_origin', 0)}")
+    print(f"  - From Error Detection: {summary.get('culprits_from_failure', 0)}")
     print(f"Confidence threshold: {summary.get('confidence_threshold', 0.0):.2f}")
+    if summary.get('responsible_component'):
+        print(f"Responsible Component (from Error Detection): {summary.get('responsible_component')}")
+    if summary.get('decisive_error_step_index') is not None:
+        print(f"Decisive Error Step Index: {summary.get('decisive_error_step_index')}")
     
     # Display culprits
     if culprits:
         print("\n" + "=" * 80)
-        print("CULPRIT MESSAGES")
+        print("CULPRIT MESSAGES (Combined Results)")
         print("=" * 80 + "\n")
-        for i, (msg, confidence, explanation) in enumerate(culprits, 1):
-            print(f"{i}. [Confidence: {confidence:.2f}]")
+        for i, culprit_data in enumerate(culprits, 1):
+            # Handle both old format (3 items) and new format (4 items with sources)
+            if len(culprit_data) == 4:
+                msg, confidence, explanation, sources = culprit_data
+                source_label = " | ".join(sources)
+            else:
+                msg, confidence, explanation = culprit_data
+                source_label = "Unknown"
+            
+            print(f"{i}. [Confidence: {confidence:.2f}] [Source: {source_label}]")
             print(f"   Explanation: {explanation}")
             print_message_summary(msg, highlight_culprit=True)
             print()
@@ -267,84 +401,6 @@ if __name__ == "__main__":
     for m in result['messages']:
         print_message_summary(m, highlight_culprit=True)
     
-    # # Print critic output as Python code for use as --example
-    # print("\n" + "=" * 80)
-    # print("CRITIC OUTPUT (for --example input)")
-    # print("=" * 80 + "\n")
-    # print("# Copy this output and paste it as example_output in main.py")
-    # print("# Query used:", repr(user_query))
-    # print("\nexample_output_with_culprits = {")
-    # print("    'messages': [")
-    
-    # for i, msg in enumerate(result['messages']):
-    #     # Get message type
-    #     if isinstance(msg, HumanMessage):
-    #         msg_type = "HumanMessage"
-    #     elif isinstance(msg, AIMessage):
-    #         msg_type = "AIMessage"
-    #     elif isinstance(msg, ToolMessage):
-    #         msg_type = "ToolMessage"
-    #     else:
-    #         msg_type = type(msg).__name__
-        
-    #     # Get content
-    #     content = getattr(msg, 'content', '')
-    #     content_repr = repr(content) if content else "''"
-        
-    #     # Get tool calls if present
-    #     tool_calls = getattr(msg, 'tool_calls', [])
-    #     tool_calls_str = ""
-    #     if tool_calls:
-    #         tool_calls_str = f",\n            tool_calls={repr(tool_calls)}"
-        
-    #     # Get other attributes
-    #     msg_id = getattr(msg, 'id', '')
-    #     id_str = f", id={repr(msg_id)}" if msg_id else ""
-        
-    #     name = getattr(msg, 'name', '')
-    #     name_str = f", name={repr(name)}" if name else ""
-        
-    #     tool_call_id = getattr(msg, 'tool_call_id', '')
-    #     tool_call_id_str = f", tool_call_id={repr(tool_call_id)}" if tool_call_id else ""
-        
-    #     additional_kwargs = getattr(msg, 'additional_kwargs', {})
-    #     additional_kwargs_str = ""
-    #     if additional_kwargs:
-    #         additional_kwargs_str = f",\n            additional_kwargs={repr(additional_kwargs)}"
-        
-    #     response_metadata = getattr(msg, 'response_metadata', {})
-    #     response_metadata_str = ""
-    #     if response_metadata:
-    #         response_metadata_str = f",\n            response_metadata={repr(response_metadata)}"
-        
-    #     # Get culprit metadata if present
-    #     culprit_meta = ""
-    #     if hasattr(msg, '_culprit_metadata'):
-    #         meta = msg._culprit_metadata
-    #         culprit_meta = f"\n        # Culprit metadata: is_culprit={meta.get('is_culprit')}, confidence={meta.get('confidence')}, explanation={repr(meta.get('explanation', ''))}"
-        
-    #     # Print message
-    #     print(f"        {msg_type}(")
-    #     print(f"            content={content_repr}{tool_calls_str}{additional_kwargs_str}{response_metadata_str}{id_str}{name_str}{tool_call_id_str}")
-    #     print(f"        ){',' if i < len(result['messages']) - 1 else ''}{culprit_meta}")
-    
-    # print("    ],")
-    # print("    'query': " + repr(user_query) + ",")
-    # print("    'culprits': [")
-    # for i, (msg, confidence, explanation) in enumerate(culprits):
-    #     msg_id = getattr(msg, 'id', f'msg_{i}')
-    #     msg_type = type(msg).__name__
-    #     content = getattr(msg, 'content', '')[:100]
-    #     print(f"        {{")
-    #     print(f"            'id': {repr(msg_id)},")
-    #     print(f"            'type': {repr(msg_type)},")
-    #     print(f"            'content': {repr(content)},")
-    #     print(f"            'confidence': {confidence},")
-    #     print(f"            'explanation': {repr(explanation)}")
-    #     print(f"        }}{',' if i < len(culprits) - 1 else ''}")
-    # print("    ]")
-    # print("}")
-    # print("\n" + "=" * 80)
     
     # Generate graph visualization
     print("\n" + "=" * 80)

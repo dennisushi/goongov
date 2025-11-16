@@ -1,6 +1,11 @@
 // Global variables
 let currentTraceData = null;
 let culpritData = null;
+let originalUserQuery = null;  // Store the original query that generated the trace
+
+// Backend API URL - can be overridden by setting window.API_BASE_URL
+// If running frontend separately, set this to 'http://localhost:5000'
+const API_BASE_URL = window.API_BASE_URL || '';
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
@@ -12,9 +17,112 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Trace Analysis UI loaded. No initial trace data.');
         // Show message to user
         const container = document.getElementById('graph-container');
-        container.innerHTML = '<div class="empty-state"><p>No trace data loaded. Use the API to load a trace.</p></div>';
+        container.innerHTML = '<div class="empty-state"><p>No trace data loaded. Enter a query above to generate a trace, or use the API to load a trace.</p></div>';
     }
 });
+
+/**
+ * Generate execution trace from user query
+ */
+async function generateTrace() {
+    const queryInput = document.getElementById('user-query-input');
+    const modelSelect = document.getElementById('model-select');
+    const generateBtn = document.getElementById('generate-trace-btn');
+    const loadingDiv = document.getElementById('trace-generation-loading');
+    const graphContainer = document.getElementById('graph-container');
+    const graphLoading = document.getElementById('graph-loading');
+    
+    const userQuery = queryInput.value.trim();
+    const modelName = modelSelect.value;
+    
+    if (!userQuery) {
+        alert('Please enter a query for the agent');
+        return;
+    }
+    
+    // Show loading state
+    generateBtn.disabled = true;
+    loadingDiv.style.display = 'block';
+    graphLoading.style.display = 'block';
+    graphContainer.innerHTML = '';
+    
+    // Clear previous analysis
+    document.getElementById('summary').innerHTML = '';
+    document.getElementById('culprits-list').innerHTML = '<div class="empty-state"><p>No analysis performed yet. Enter a query and click "Analyze Trace" to identify culprits.</p></div>';
+    document.getElementById('query-input').value = '';
+    culpritData = null;
+    
+    try {
+        // Send trace generation request
+        const response = await fetch(`${API_BASE_URL}/api/generate-trace`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                user_query: userQuery,
+                model_name: modelName
+            })
+        });
+        
+        if (!response.ok) {
+            let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.error || errorMessage;
+            } catch (e) {
+                // If response is not JSON, use status text
+                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+            }
+            throw new Error(errorMessage);
+        }
+        
+        const data = await response.json();
+        
+        // Check for error in response
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        // Load the generated trace
+        if (data.trace) {
+            console.log('Trace generated successfully:', data.trace_id);
+            loadTraceData(data.trace);
+            
+            // Store original user query
+            originalUserQuery = data.original_user_query || userQuery;
+            if (data.trace.metadata && data.trace.metadata.original_user_query) {
+                originalUserQuery = data.trace.metadata.original_user_query;
+            }
+            
+            // Show success message
+            const successMsg = document.createElement('div');
+            successMsg.className = 'success-message';
+            successMsg.textContent = `✓ Trace generated successfully! (ID: ${data.trace_id.substring(0, 8)}...)`;
+            successMsg.style.cssText = 'color: #10b981; padding: 8px; margin-top: 8px; font-size: 14px;';
+            loadingDiv.parentElement.appendChild(successMsg);
+            setTimeout(() => successMsg.remove(), 5000);
+        } else {
+            throw new Error('No trace data in response');
+        }
+        
+    } catch (error) {
+        console.error('Error generating trace:', error);
+        console.error('Error details:', error.stack);
+        let errorMsg = 'Error generating trace: ' + error.message;
+        if (error.message.includes('Failed to fetch')) {
+            errorMsg += '\n\nPossible causes:\n- Server is not running\n- CORS issue\n- Network error\n\nCheck the browser console and server logs for more details.';
+        } else if (error.message.includes('404') || error.message.includes('NOT FOUND')) {
+            errorMsg += '\n\nThe /api/generate-trace endpoint was not found. Make sure the Flask server is running and the route is registered.';
+        }
+        alert(errorMsg);
+        graphContainer.innerHTML = `<div class="empty-state"><p style="color: #ef4444;">Error: ${error.message}</p><p style="color: #94A3B8; font-size: 0.9em; margin-top: 8px;">Check the browser console for more details.</p></div>`;
+    } finally {
+        generateBtn.disabled = false;
+        loadingDiv.style.display = 'none';
+        graphLoading.style.display = 'none';
+    }
+}
 
 /**
  * Analyze trace with user query
@@ -44,9 +152,45 @@ async function analyzeTrace() {
     summaryDiv.innerHTML = '';
     culpritsDiv.innerHTML = '';
     
+    // Get toggle states
+    const useFindIssueOrigin = document.getElementById('toggle-find-issue-origin').checked;
+    const useFailureAnalysis = document.getElementById('toggle-failure-analysis').checked;
+    
+    if (!useFindIssueOrigin && !useFailureAnalysis) {
+        alert('Please enable at least one analysis method.');
+        return;
+    }
+    
+    // Get original user query from trace metadata or stored value
+    let originalQuery = originalUserQuery;
+    if (!originalQuery && currentTraceData) {
+        if (currentTraceData.metadata && currentTraceData.metadata.original_user_query) {
+            originalQuery = currentTraceData.metadata.original_user_query;
+        } else {
+            // Try to extract from first HumanMessage
+            const messages = currentTraceData.messages || [];
+            for (const msg of messages) {
+                if (msg.type === 'human' || (msg.lc_kwargs && msg.lc_kwargs.type === 'human')) {
+                    originalQuery = msg.content || msg.lc_kwargs?.content || '';
+                    // Clean up if it contains system prompt
+                    if (originalQuery && originalQuery.length > 500) {
+                        const lines = originalQuery.split('\n');
+                        for (const line of lines.reverse()) {
+                            if (line.trim() && !line.trim().startsWith('You are')) {
+                                originalQuery = line.trim();
+                                break;
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    
     try {
         // Send analysis request
-        const response = await fetch('/api/analyze', {
+        const response = await fetch(`${API_BASE_URL}/api/analyze`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -54,7 +198,10 @@ async function analyzeTrace() {
             body: JSON.stringify({
                 trace: currentTraceData,
                 query: query,
-                confidence_threshold: 0.5
+                original_user_query: originalQuery,
+                confidence_threshold: 0.5,
+                use_find_issue_origin: useFindIssueOrigin,
+                use_failure_analysis: useFailureAnalysis
             })
         });
         
@@ -111,8 +258,14 @@ function displaySummary(summary, culprits) {
     const html = `
         <h3>Analysis Summary</h3>
         <p><strong>Messages Checked:</strong> ${summary.total_messages_checked || 0}</p>
-        <p><strong>Culprits Found:</strong> ${summary.culprits_found || 0}</p>
+        <p><strong>Total Culprits Found:</strong> ${summary.culprits_found || 0}</p>
+        ${summary.culprits_from_origin !== undefined ? `<p><strong>From Culprit Detection:</strong> ${summary.culprits_from_origin || 0}</p>` : ''}
+        ${summary.culprits_from_failure !== undefined ? `<p><strong>From Error Detection:</strong> ${summary.culprits_from_failure || 0}</p>` : ''}
         <p><strong>Confidence Threshold:</strong> ${(summary.confidence_threshold || 0).toFixed(2)}</p>
+        ${summary.primary_component ? `<p><strong>Primary Component (Culprit Detection):</strong> ${summary.primary_component}</p>` : ''}
+        ${summary.component_breakdown ? `<p><strong>Component Breakdown:</strong> ${Object.entries(summary.component_breakdown).map(([k, v]) => `${k}: ${v}`).join(', ')}</p>` : ''}
+        ${summary.responsible_component ? `<p><strong>Responsible Component (Error Detection):</strong> ${summary.responsible_component}</p>` : ''}
+        ${summary.decisive_error_step_index !== undefined && summary.decisive_error_step_index !== null ? `<p><strong>Decisive Error Step:</strong> ${summary.decisive_error_step_index}</p>` : ''}
     `;
     
     summaryDiv.innerHTML = html;
@@ -145,12 +298,25 @@ function displayCulprits(culprits) {
             confidenceClass = 'medium-confidence';
         }
         
+        const sources = culprit.sources || 'Unknown';
+        const isResponsible = culprit.is_responsible_node || false;
+        const isFailure = culprit.is_failure || false;
+        const responsibleComponent = culprit.responsible_component || '';
+        
+        // Add "root-cause" class for extra styling if it's the first responsible node
+        const isFirstResponsible = index === 0 && isResponsible;
         html += `
-            <div class="culprit-item ${confidenceClass}" data-culprit-id="${culprit.id || `culprit_${index}`}">
+            <div class="culprit-item ${confidenceClass} ${isResponsible ? 'responsible-node' : ''} ${isFailure ? 'failure-node' : ''} ${isFirstResponsible ? 'root-cause' : ''}" data-culprit-id="${culprit.id || `culprit_${index}`}">
                 <div class="culprit-header">
                     <span class="culprit-type">${culprit.type || 'Unknown'}</span>
+                    <div class="badge-container">
+                        ${isResponsible ? '<span class="responsible-badge">🎯 RESPONSIBLE NODE</span>' : ''}
+                        ${isFailure ? '<span class="failure-badge">❌ FAILURE</span>' : ''}
+                    </div>
                     <span class="confidence-badge">${(confidence * 100).toFixed(0)}%</span>
                 </div>
+                ${sources ? `<div class="culprit-sources" style="font-size: 0.85em; color: #94A3B8; margin-bottom: 8px;">Source: ${escapeHtml(sources)}</div>` : ''}
+                ${responsibleComponent ? `<div class="responsible-component" style="font-size: 0.85em; color: #F59E0B; margin-bottom: 8px; font-weight: 600;">Component: ${escapeHtml(responsibleComponent)}</div>` : ''}
                 <div class="culprit-content">${escapeHtml(culprit.content || '')}</div>
                 <div class="culprit-explanation">${escapeHtml(culprit.explanation || '')}</div>
             </div>
@@ -254,9 +420,11 @@ function initializeGraph(traceData) {
             toolCalls = [];
         }
         
-        // Check if this is a culprit
+        // Check if this is a responsible node or failure
         const culprit = culpritData ? culpritData.find(c => c.id === msgId) : null;
         const isCulprit = culprit != null; // Check for both null and undefined
+        const isResponsible = culprit && culprit.is_responsible_node;
+        const isFailure = culprit && culprit.is_failure;
         
         // Create message bubble
         const messageBubble = document.createElement('div');
@@ -265,6 +433,12 @@ function initializeGraph(traceData) {
         
         if (isCulprit && culprit) {
             messageBubble.classList.add('culprit-message');
+            if (isResponsible) {
+                messageBubble.classList.add('responsible-node-message');
+            }
+            if (isFailure) {
+                messageBubble.classList.add('failure-message');
+            }
             const confidence = (culprit && culprit.confidence) ? culprit.confidence : 0;
             if (confidence >= 0.8) {
                 messageBubble.classList.add('culprit-high');
@@ -292,11 +466,36 @@ function initializeGraph(traceData) {
         if (isCulprit && culprit) {
             const header = document.createElement('div');
             header.className = 'message-header';
-            const culpritBadge = document.createElement('span');
-            culpritBadge.className = 'culprit-badge';
             const confidence = (culprit && culprit.confidence) ? culprit.confidence : 0;
-            culpritBadge.textContent = `⚠️ CULPRIT (${Math.round(confidence * 100)}%)`;
-            header.appendChild(culpritBadge);
+            const isFailure = culprit && culprit.is_failure;
+            
+            // Create badge container
+            const badgeContainer = document.createElement('div');
+            badgeContainer.className = 'badge-container';
+            
+            if (isResponsible) {
+                const responsibleBadge = document.createElement('span');
+                responsibleBadge.className = 'responsible-badge';
+                responsibleBadge.textContent = `🎯 RESPONSIBLE NODE (${Math.round(confidence * 100)}%)`;
+                badgeContainer.appendChild(responsibleBadge);
+            }
+            
+            if (isFailure) {
+                const failureBadge = document.createElement('span');
+                failureBadge.className = 'failure-badge';
+                failureBadge.textContent = `❌ FAILURE (${Math.round(confidence * 100)}%)`;
+                badgeContainer.appendChild(failureBadge);
+            }
+            
+            if (!isResponsible && !isFailure) {
+                // Fallback for old data
+                const culpritBadge = document.createElement('span');
+                culpritBadge.className = 'culprit-badge';
+                culpritBadge.textContent = `⚠️ CULPRIT (${Math.round(confidence * 100)}%)`;
+                badgeContainer.appendChild(culpritBadge);
+            }
+            
+            header.appendChild(badgeContainer);
             contentArea.appendChild(header);
         }
         
@@ -351,15 +550,16 @@ function initializeGraph(traceData) {
             const textDiv = document.createElement('div');
             textDiv.className = 'message-text';
             
-            // Check if this is a system prompt (very long, contains instructions)
-            const isSystemPrompt = content.length > 1000 && (
+            // Check if this is a system message or system prompt (very long, contains instructions)
+            const isSystemMessage = msgType === 'system';
+            const isSystemPrompt = !isSystemMessage && content.length > 1000 && (
                 content.toLowerCase().includes('you are') || 
                 content.toLowerCase().includes('your goal is') ||
                 content.toLowerCase().includes('follow this pattern')
             );
             
-            if (isSystemPrompt) {
-                // Collapse system prompts by default
+            if (isSystemMessage || isSystemPrompt) {
+                // Collapse system messages/prompts by default
                 const preview = content.substring(0, 150).trim() + '...';
                 textDiv.textContent = preview;
                 textDiv.style.fontStyle = 'italic';
@@ -367,7 +567,7 @@ function initializeGraph(traceData) {
                 
                 const expandBtn = document.createElement('button');
                 expandBtn.className = 'expand-btn';
-                expandBtn.textContent = 'Show full instructions';
+                expandBtn.textContent = isSystemMessage ? 'Show system prompt' : 'Show full instructions';
                 expandBtn.onclick = () => {
                     textDiv.textContent = content;
                     textDiv.style.fontStyle = 'normal';
@@ -457,6 +657,7 @@ function escapeHtml(text) {
 // Export for use in other scripts
 window.traceAnalysis = {
     loadTraceData: loadTraceData,
-    analyzeTrace: analyzeTrace
+    analyzeTrace: analyzeTrace,
+    generateTrace: generateTrace
 };
 

@@ -18,6 +18,29 @@
         </header>
         
         <div class="container">
+            <!-- Trace Generation Section -->
+            <div class="trace-generation-section">
+                <h2>Generate Execution Trace</h2>
+                <div class="trace-input-group">
+                    <textarea 
+                        id="user-query-input" 
+                        placeholder="Enter your query for the agent (e.g., 'I would like to book the community center for a 30-person event on December 10th.')"
+                        rows="2"
+                    ></textarea>
+                    <div class="trace-input-actions">
+                        <select id="model-select">
+                            <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+                            <option value="claude-3-opus">Claude 3 Opus</option>
+                            <option value="claude-3-sonnet">Claude 3 Sonnet</option>
+                        </select>
+                        <button id="generate-trace-btn" onclick="generateTrace()">Send User Query</button>
+                    </div>
+                    <div id="trace-generation-loading" class="loading" style="display: none;">
+                        Generating execution trace...
+                    </div>
+                </div>
+            </div>
+            
             <div class="main-content">
             <!-- Left Panel: Graph Visualization -->
             <div class="graph-panel">
@@ -37,6 +60,18 @@
                         placeholder="Enter your question about the trace (e.g., 'why did they choose this room')"
                         rows="3"
                     ></textarea>
+                    
+                    <div class="analysis-toggles">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="toggle-find-issue-origin" checked>
+                            <span>Culprit Detection (find_issue_origin)</span>
+                        </label>
+                        <label class="toggle-label">
+                            <input type="checkbox" id="toggle-failure-analysis" checked>
+                            <span>Error Detection (failure_analysis)</span>
+                        </label>
+                    </div>
+                    
                     <button id="analyze-btn" onclick="analyzeTrace()">Analyze Trace</button>
                     <div id="query-loading" class="loading" style="display: none;">
                         Analyzing...
@@ -62,6 +97,12 @@
         {% if current_trace %}
         window.initialTraceData = {{ current_trace | safe }};
         {% endif %}
+    </script>
+    <!-- Set API base URL if running frontend separately -->
+    <script>
+        // If running frontend on a different port, set the backend URL here
+        // Uncomment and modify if needed:
+        // window.API_BASE_URL = 'http://localhost:5000';
     </script>
     <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
