@@ -1,6 +1,6 @@
 # Devise: Agentic Government Council
 
-## Project overview
+## 🏛️ Project overview
 Devise (Agentic Government Council) is a small developer tool that helps you understand, visualize, and debug multi-step agent executions. It runs a ReAct-style agent, captures a full execution trace (thoughts, tool calls, tool observations, and final answers), displays that trace in a lightweight frontend, and provides critic-style analysis to locate which message or step "caused" a wrong or surprising decision.
 
 Why this exists
@@ -19,7 +19,7 @@ Key files and symbols
 - Frontend UI: [frontend/templates/index.html](frontend/templates/index.html) and [frontend/static/app.js](frontend/static/app.js).
 - Helpful run notes: [RUNNING.md](RUNNING.md) and convenience scripts `./run_backend.sh` and `./run_frontend.sh`.
 
-## Setup instructions
+## 🚀 Setup instructions
 1. Clone the repo and open the project root.
 2. Create and activate a Python virtual environment.
    - Example:
@@ -38,7 +38,7 @@ Key files and symbols
      - LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY — optional, used in [`backend/llm_utils.py`](backend/llm_utils.py) to initialize Langfuse instrumentation.
    - You can put these into a `.env` file at the repo root (the code loads ../.env from some notebook contexts). The repo includes examples that print status when keys are missing; see the top of [`backend/llm_utils.py`](backend/llm_utils.py) for details.
 
-## How to run/test
+## ▶️ How to run/test
 There are convenience scripts and manual options.
 
 Quick (recommended)
