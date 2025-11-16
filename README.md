@@ -1,40 +1,79 @@
-# Devise: Agentic Government Council 
-## 🏛️ Project Overview
+# Devise: Agentic Government Council
 
-This project addresses the critical collapse in public trust caused by opaque decision-making. When AI agents operate as "black boxes," they amplify this problem.
+## Project overview
+Devise (Agentic Government Council) is a small developer tool that helps you understand, visualize, and debug multi-step agent executions. It runs a ReAct-style agent, captures a full execution trace (thoughts, tool calls, tool observations, and final answers), displays that trace in a lightweight frontend, and provides critic-style analysis to locate which message or step "caused" a wrong or surprising decision.
 
-Our solution is a framework built on three core pillars:
+Why this exists
+- Agentic systems are powerful but opaque. Devise makes the agent’s decisions visible so you can debug wrong answers, tool misuses, and unexpected behaviour.
+- It provides structured output (optional) and tooling to point to likely "culprit" messages so you can iterate faster.
 
-1.  **The Inner Monologue:** We use a `GovAgent` that produces a detailed, step-by-step trace of its reasoning, tool calls, and observations for every decision it makes.
-2.  **The Audit Dashboard:** We provide tools to visualize this complex trace as an interactive graph (`trace_analysis.html`) and a web dashboard (via a Flask server) for easy, non-technical exploration.
-3.  **The Hybrid Failure Judge:** This is a powerful "critic" system that uses an LLM to automatically audit the agent's trace. It combines two methods:
-    * **Find the 'Who' (Culprit Detection):** An auditor can ask a natural language question (e.g., "Who was assigned this task?"), and the judge finds the *exact* message(s) in the trace that provide the answer. (See `find_issue_origin`)
-    * **Find the 'When' (Error Detection):** The judge automatically scans the trace for logical failures or deviations from the original request, pinpointing the "decisive error step" without needing a human query. (See `failure_analysis`)
+How it works (high level)
+- The Flask backend runs a GovAgent (see [`backend.llm_utils.GovAgent`](backend/llm_utils.py)) that wraps a ReAct-style agent built with the local react agent helper (see [`core.react_agent.create_agent.create_react_agent`](core/react_agent/create_agent.py)).
+- The backend exposes an endpoint to generate traces ([`backend/app.generate_trace`](backend/app.py)), stores the trace, and returns a JSON-serializable representation for the UI.
 
-This repository contains the core Python code to run the `GovAgent` and, more importantly, the `Hybrid Failure Judge` to analyze its outputs.
+Key files and symbols
+- Agent code / utilities: [`backend/llm_utils.py`](backend/llm_utils.py) (contains `Agent` and `GovAgent`, plus tool implementations and Langfuse integration).
+- Trace generation endpoint: [`backend/app.py`](backend/app.py) (POST /api/generate-trace).
+- Local React agent implementation: [`core/react_agent/create_agent.py`](core/react_agent/create_agent.py) (factory: `create_react_agent`).
+- Structured output schema: [`core/react_agent/output_schema.py`](core/react_agent/output_schema.py).
+- Frontend UI: [frontend/templates/index.html](frontend/templates/index.html) and [frontend/static/app.js](frontend/static/app.js).
+- Helpful run notes: [RUNNING.md](RUNNING.md) and convenience scripts `./run_backend.sh` and `./run_frontend.sh`.
 
----
-## 🚀 Setup Instructions
+## Setup instructions
+1. Clone the repo and open the project root.
+2. Create and activate a Python virtual environment.
+   - Example:
+     - python3 -m venv .venv
+     - source .venv/bin/activate
+3. Install dependencies:
+   - Install top-level deps:
+     - pip install -r requirements.txt
+   - If you plan to run code in `core/`, also install core requirements:
+     - pip install -r core/requirements.txt
+   - There are extra helper packages referenced in notebooks and code (LangGraph / LangChain / Pydantic). If you hit import errors, re-check `core/requirements.txt` and `requirements.txt`.
+4. Environment variables and API keys
+   - The project expects some keys for model backends and monitoring:
+     - HOLISTIC_AI_TEAM_ID and HOLISTIC_AI_API_TOKEN — for Holistic AI / Bedrock helper used by [`backend.llm_utils.GovAgent`](backend/llm_utils.py).
+     - OPENAI_API_KEY — optional fallback if Bedrock credentials are not set.
+     - LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY — optional, used in [`backend/llm_utils.py`](backend/llm_utils.py) to initialize Langfuse instrumentation.
+   - You can put these into a `.env` file at the repo root (the code loads ../.env from some notebook contexts). The repo includes examples that print status when keys are missing; see the top of [`backend/llm_utils.py`](backend/llm_utils.py) for details.
 
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/dennisushi/goongov/
-cd goongov
-```
-
-### 2. Create a Virtual Environment
-
-It's highly recommended to use a virtual environment to manage dependencies.
-
-```bash
-# For macOS/Linux
-python3 -m venv venv
-source venv/bin/activate
-```
-# For Windows
-```bash
-python -m venv venv
-.\venv\Scripts\activate
-```
 ## How to run/test
+There are convenience scripts and manual options.
+
+Quick (recommended)
+- Start backend:
+  - ./run_backend.sh
+  - This runs the Flask backend which exposes the trace generation API (see [`backend/app.py`](backend/app.py)).
+- Start frontend:
+  - ./run_frontend.sh
+  - Open http://localhost:3000/frontend/index_standalone.html (or follow the URL printed by the script). The UI is the static app in [frontend/templates/index.html](frontend/templates/index.html) / [frontend/static/app.js](frontend/static/app.js).
+
+Manual
+- Backend
+  - Activate venv and run the Flask app module (or run the script the backend uses). The backend serves the API that the frontend calls:
+    - POST /api/generate-trace — implemented in [`backend/app.py`](backend/app.py).
+  - You can also run example flows from `main.py`:
+    - python main.py --example
+    - This will run a pre-baked example trace and print analysis output to the console (see `main.py` for how example traces and the critic analysis are invoked).
+- Frontend
+  - The frontend is static and can be served by any HTTP server. The convenience script runs a small server and points the browser to [frontend/index_standalone.html](frontend/index_standalone.html).
+
+Testing flow (end-to-end)
+1. Start backend and frontend per the Quick section.
+2. Open the UI and submit a user query (e.g., "I would like to book the community center for a 30-person event on December 10th.").
+3. The frontend hits the backend endpoint in [`backend/app.py`](backend/app.py) which creates a `GovAgent` (`[`backend.llm_utils.GovAgent`](backend/llm_utils.py)`) to run the query and return a trace.
+4. The UI visualizes the trace and shows analysis results (culprit candidates and summary). The front-end logic that drives the generation button and basic UI state is in [frontend/static/app.js](frontend/static/app.js).
+
+Developer notes & tips
+- Agent creation and configuration: look at [`core/react_agent/create_agent.py`](core/react_agent/create_agent.py) to understand how the ReAct agent is assembled, how tool-calling is routed, and how structured outputs are handled.
+- Tools & instrumentation: tool implementations (e.g., `assign_task`, `check_calendar`) and the Langfuse hooks live in [`backend/llm_utils.py`](backend/llm_utils.py). That file contains both instrumented tool definitions and the `Agent` base wrapper used by `GovAgent`.
+- Structured outputs: If you want agents to return JSON-validated outputs, check [`core/react_agent/output_schema.py`](core/react_agent/output_schema.py) and how `create_react_agent` optionally formats model responses to that schema.
+- Example traces: `main.py` contains a ready-made example trace and demonstration of the critic analysis flow — run with `--example` to see printed output and culprits detection.
+
+If something fails
+- Check logs printed by the backend in the terminal for helpful messages.
+- Verify environment variables and keys; [`backend/llm_utils.py`](backend/llm_utils.py) prints key-loading status at import.
+- Consult [RUNNING.md](RUNNING.md) for the recommended dev-run setup and port info.
+
+Enjoy exploring agent traces — Devise should help you answer the crucial question: "Why did the agent do that?"
